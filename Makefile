@@ -1,3 +1,5 @@
+all : zbc_write
+
 zbc_write : custom_write_zone.o
 	gcc -L/usr/include/libzbc -o zbc_write custom_write_zone.o -lzbc
 

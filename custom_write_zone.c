@@ -40,7 +40,7 @@ static void zbc_write_zone_sigcatcher(int sig) {
 
 int main(int argc, char **argv) {
 
-    int i, fd = -1;
+    int zone_idx, i, fd = -1;
     int flags = O_RDWR;
     char *path, *file = NULL;
     ssize_t ret = 1;
@@ -107,12 +107,23 @@ int main(int argc, char **argv) {
     zbc_print_device_info(&info, stdout);
 
     /* Get Zone list */
-    ret = zbc_list_zones(dev, 0, ZBC_RO_ALL, &zones, &nr_zones);
+    ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &zones, &nr_zones);
     if (ret != 0) {
         fprintf(stderr, "zbc_list_zones failed\n");
         ret = 1;
         goto out;
     }
+
+    /* Get Target Zone */
+    /**
+     * zone_idx 가 zone number 를 의미하며,
+     * nr_zone 보다 zone_idx 가 크면 invalid 한 것.
+     *
+     */
+     if (zone_idx > (int) nr_zones) {
+
+     }
+
     /* Part of File I/O */
 
     out:

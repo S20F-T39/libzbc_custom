@@ -1,3 +1,15 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/*
+ * This file is part of libzbc.
+ *
+ * Copyright (C) 2009-2014, HGST, Inc. All rights reserved.
+ * Copyright (C) 2016, Western Digital. All rights reserved.
+ * Copyright (C) 2020 Western Digital COrporation or its affiliates.
+ *
+ * Author: Damien Le Moal (damien.lemoal@wdc.com)
+ *         Christophe Louargant (christophe.louargant@wdc.com)
+ */
+
 #define _GNU_SOURCE     /* O_LARGEFILE & O_DIRECT */
 
 #include <stdio.h>
@@ -40,17 +52,19 @@ static void zbc_write_zone_sigcatcher(int sig) {
 
 int main(int argc, char **argv) {
 
-    int zone_idx, i, fd = -1;
+    int init_zone_idx, zone_idx, i, fd = -1;
     int flags = O_RDWR;
     char *path, *file = NULL;
     ssize_t ret = 1;
 
     struct zbc_device *dev = NULL;
     struct zbc_device_info info = {0};
-    struct zbc_zone *zones = NULL;
+
+    struct zbc_zone *empty_zones = NULL;
+    struct zbc_zone *imp_open_zones = NULL;
     struct zbc_zone *io_zone = NULL;
 
-    unsigned int nr_zones;          // Number of Zones
+    unsigned int nr_zones;              // Number of Zones
 
     if (argc < 3) {
         usage:
@@ -106,8 +120,9 @@ int main(int argc, char **argv) {
     printf("Device %s:\n", path);
     zbc_print_device_info(&info, stdout);
 
-    /* Get Zone list */
-    ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &zones, &nr_zones);
+    /* Get Empty Zone list (Without Conventional) */
+    // TODO sector 를 찾을 수 있는가? == empty zone 첫 번째 index 를 구할 수 있는가?
+    ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &empty_zones, &nr_zones);
     if (ret != 0) {
         fprintf(stderr, "zbc_list_zones failed\n");
         ret = 1;
@@ -115,14 +130,23 @@ int main(int argc, char **argv) {
     }
 
     /* Get Target Zone */
-    /**
-     * zone_idx 가 zone number 를 의미하며,
-     * nr_zone 보다 zone_idx 가 크면 invalid 한 것.
-     *
-     */
-     if (zone_idx > (int) nr_zones) {
+    /* Conventional zone 을 제외하고 받아왔으므로, Conventional check 불필요 */
+    io_zone = &empty_zones[0];
 
-     }
+    printf("Target zone: Zone %d / %d, type 0x%x (%s), "
+           "cond 0x%x (%s), rwp %d, non_seq %d, "
+           "sector %llu, %llu sectors, wp %llu\n",
+           zone_idx,
+           nr_zones,
+           zbc_zone_type(io_zone),
+           zbc_zone_type_str(zbc_zone_type(io_zone)),
+           zbc_zone_condition(io_zone),
+           zbc_zone_condition_str(zbc_zone_condition(io_zone)),
+           zbc_zone_rwp_recommended(io_zone),
+           zbc_zone_non_seq(io_zone),
+           zbc_zone_start(io_zone),
+           zbc_zone_length(io_zone),
+           zbc_zone_wp(io_zone));
 
     /* Part of File I/O */
 
@@ -130,7 +154,7 @@ int main(int argc, char **argv) {
     if (fd > 0)
         close(fd);
     zbc_close(dev);
-    free(zones);
+    free(empty_zones);
 
     return ret;
 }

@@ -2,6 +2,8 @@
 
 libzbc를 커스텀하여 파일 입출력을 수행합니다.
 
+## Write
+
 > `write` 시에 `zone` 을 지정하는 방법
 1. `Conventional Zone` 은 일단 건드리지 않는다. `Conventional zone`을 무시한 채로 진행.
 2. `Empty Zone` 의 첫번째를 구하여 `Write`
@@ -27,3 +29,5 @@ libzbc를 커스텀하여 파일 입출력을 수행합니다.
 3. `file size` 가 `zone` 의 크기보다 크다면, 일단은 `zone` 을 넘어가지 않도록 하였습니다.
 4. `zone_info` 와 관련하여, `implicit open` 되어지는 `zone` 의 갯수가 한정적이므로,
 앞의 `zone` 이 `close` 되는 현상이 발생하여, 해결책이 필요합니다.
+
+## Read

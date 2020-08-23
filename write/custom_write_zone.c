@@ -54,16 +54,16 @@ int main(int argc, char **argv) {
 
     int zone_idx, i, fd = -1;
     int flags = O_RDWR;
-    char *path, *end, *file = NULL;
+    char *path, *file = NULL;
     void *io_buffer = NULL;
 
     long long zone_offset = 0;
-    long long sector_offset = 0;
-    long long sector_max = 0;
+    long long sector_offset;
+    long long sector_max;
 
-    ssize_t ret = 1;
-    ssize_t sector_count = 0;
-    size_t io_size, io_align, buf_size = 512;
+    ssize_t ret;
+    ssize_t sector_count;
+    size_t io_size, io_align, buf_size;
 
     struct stat st;
 
@@ -71,13 +71,10 @@ int main(int argc, char **argv) {
     struct zbc_device_info info = {0};
 
     struct zbc_zone *empty_zones = NULL;
-    struct zbc_zone *imp_open_zones = NULL;
-    struct zbc_zone *zones = NULL;
     struct zbc_zone *io_zone = NULL;
 
     unsigned int nr_zones;
     unsigned int nr_empty_zones;
-    unsigned int nr_imp_open_zones;
 
     unsigned long pattern = 0;
     unsigned long long io_count = 0, io_num = 0;
@@ -139,19 +136,7 @@ int main(int argc, char **argv) {
     zbc_print_device_info(&info, stdout);
 
     /* Get Zone lists (Without Conventional) */
-    ret = zbc_list_zones(dev, 0, ZBC_RO_ALL, &zones, &nr_zones);
-    if (ret != 0) {
-        fprintf(stderr, "zbc_list_zones failed\n");
-        ret = 1;
-        goto out;
-    }
     ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &empty_zones, &nr_empty_zones);
-    if (ret != 0) {
-        fprintf(stderr, "zbc_list_zones failed\n");
-        ret = 1;
-        goto out;
-    }
-    ret = zbc_list_zones(dev, 0, ZBC_RO_IMP_OPEN, &imp_open_zones, &nr_imp_open_zones);
     if (ret != 0) {
         fprintf(stderr, "zbc_list_zones failed\n");
         ret = 1;
@@ -160,7 +145,6 @@ int main(int argc, char **argv) {
 
     /* Get Target Zone */
     /* Conventional zone 을 제외하고 받아왔으므로, Conventional check 불필요 */
-    /* Empty zone 중에 제일 첫번째 zone */
     io_zone = &empty_zones[0];
     zone_idx = (int) (io_zone->zbz_start / zbc_zone_length(io_zone));
     if (!zbc_zone_sequential(io_zone)) {
@@ -188,6 +172,8 @@ int main(int argc, char **argv) {
     /**
      * Check I/O alignment and get an I/O buffer
      */
+    buf_size = sysconf(_SC_PAGESIZE);
+
     if (zbc_zone_sequential_req(io_zone))
         io_align = info.zbd_pblock_size;        // Physical Block Size
     else
@@ -307,7 +293,7 @@ int main(int argc, char **argv) {
         ret = zbc_pwrite(dev, io_buffer, sector_count, sector_offset);
         if (ret <= 0) {
             fprintf(stderr, "%s failed %zd (%s)\n",
-                            "zbc_pwrite", -ret, strerror(-ret));
+                    "zbc_pwrite", -ret, strerror(-ret));
             ret = 1;
             goto out;
         }

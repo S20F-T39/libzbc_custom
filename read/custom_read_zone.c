@@ -73,7 +73,6 @@ int main(int argc, char **argv)
 	long long sector_max = 0;
 	long long zone_ofst = 0;
 	int flags = O_RDONLY;
-	bool vio = false;
 	unsigned long pattern = 0;
 	struct iovec *iov = NULL;
 	int iovcnt = 1, n;
@@ -95,7 +94,7 @@ usage:
 		       argv[0]);
 		return 1;
 	}
-
+	printf("argc number is : %d\n", argc);
 	/* Parse options */
 	for (i = 1; i < (argc - 1); i++) {
 
@@ -198,13 +197,10 @@ usage:
 	}
 	iozone = &zones[zidx];
 
-	if (zbc_zone_conventional(iozone))
-		printf("Target zone: Conventional zone %d / %d, "
-		       "sector %llu, %llu sectors\n",
-		       zidx,
-		       nr_zones,
-		       zbc_zone_start(iozone),
-		       zbc_zone_length(iozone));
+	if (zbc_zone_conventional(iozone)){
+		printf("this is conventional zone. plz input another zone\n");
+		goto out;
+	}
 	else
 		printf("Target zone: Zone %d / %d, type 0x%x (%s), "
 		       "cond 0x%x (%s), rwp %d, non_seq %d, "

@@ -160,13 +160,24 @@ int main(int argc, char **argv) {
 
     /* Get Target Zone */
     /* Conventional zone 을 제외하고 받아왔으므로, Conventional check 불필요 */
-    /* Empty zone 중에 제일 첫번째 zone */
-    io_zone = &empty_zones[0];
-    zone_idx = (int) (io_zone->zbz_start / zbc_zone_length(io_zone));
-    if (!zbc_zone_sequential(io_zone)) {
-        errno = EINVAL;
-        perror("Invalid or Cannot find zone\n");
-        return -1;
+    /* Empty Zone 이 없을 때. */
+    if (nr_empty_zones == 0) {
+        /* Implicit Open Zone 찾는다. */
+        io_zone = &imp_open_zones[0];
+        zone_idx = (int) (io_zone->zbz_start / zbc_zone_length(io_zone));
+        if (!zbc_zone_sequential(io_zone)) {
+            errno = EINVAL;
+            perror("Invalid or Cannot find zone\n");
+            return -1;
+        }
+    } else {
+        io_zone = &empty_zones[0];
+        zone_idx = (int) (io_zone->zbz_start / zbc_zone_length(io_zone));
+        if (!zbc_zone_sequential(io_zone)) {
+            errno = EINVAL;
+            perror("Invalid or Cannot find zone\n");
+            return -1;
+        }
     }
 
     printf("Target zone: Zone %d / %d, type 0x%x (%s), "

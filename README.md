@@ -24,4 +24,6 @@ libzbc를 커스텀하여 파일 입출력을 수행합니다.
 > `file write` 단계
 1. 파일 입력이 `argument` 에서 강제되고 있기 때문에, `file I/O` 가 필수적입니다.
 2. `file size` 는 기본적으로 `Byte` 단위로 표현됩니다.
-3. `file size` 가 `zone` 의 크기보다 크다면, 일단은 `zone` 을 넘어가 `write` 하도록 하였습니다.
+3. `file size` 가 `zone` 의 크기보다 크다면, 일단은 `zone` 을 넘어가지 않도록 하였습니다.
+4. `zone_info` 와 관련하여, `implicit open` 되어지는 `zone` 의 갯수가 한정적이므로,
+앞의 `zone` 이 `close` 되는 현상이 발생하여, 해결책이 필요합니다.

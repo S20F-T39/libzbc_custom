@@ -52,12 +52,17 @@ static void zbc_write_zone_sigcatcher(int sig) {
 
 int main(int argc, char **argv) {
 
-    int init_zone_idx, zone_idx, i, fd = -1;
+    int zone_idx, i, fd = -1;
     int flags = O_RDWR;
     char *path, *end, *file = NULL;
     void *io_buffer = NULL;
 
+    long long zone_offset = 0;
+    long long sector_offset = 0;
+    long long sector_max = 0;
+
     ssize_t ret = 1;
+    ssize_t sector_count = 0;
     size_t io_size, io_align, buf_size = 512;
 
     struct stat st;
@@ -67,11 +72,17 @@ int main(int argc, char **argv) {
 
     struct zbc_zone *empty_zones = NULL;
     struct zbc_zone *imp_open_zones = NULL;
+    struct zbc_zone *zones = NULL;
     struct zbc_zone *io_zone = NULL;
 
-    unsigned int nr_zones;              // Number of Zones
+    unsigned int nr_zones;
+    unsigned int nr_empty_zones;
+    unsigned int nr_imp_open_zones;
+
     unsigned long pattern = 0;
-    unsigned long long f_size;
+    unsigned long long io_count = 0, io_num = 0;
+    unsigned long long elapsed, f_size;
+    unsigned long long b_rate, b_count = 0;
 
     if (argc < 3) {
         usage:
@@ -127,9 +138,20 @@ int main(int argc, char **argv) {
     printf("Device %s:\n", path);
     zbc_print_device_info(&info, stdout);
 
-    /* Get Empty Zone list (Without Conventional) */
-    // TODO sector 를 찾을 수 있는가? == empty zone 첫 번째 index 를 구할 수 있는가?
-    ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &empty_zones, &nr_zones);
+    /* Get Zone lists (Without Conventional) */
+    ret = zbc_list_zones(dev, 0, ZBC_RO_ALL, &zones, &nr_zones);
+    if (ret != 0) {
+        fprintf(stderr, "zbc_list_zones failed\n");
+        ret = 1;
+        goto out;
+    }
+    ret = zbc_list_zones(dev, 0, ZBC_RO_EMPTY, &empty_zones, &nr_empty_zones);
+    if (ret != 0) {
+        fprintf(stderr, "zbc_list_zones failed\n");
+        ret = 1;
+        goto out;
+    }
+    ret = zbc_list_zones(dev, 0, ZBC_RO_IMP_OPEN, &imp_open_zones, &nr_imp_open_zones);
     if (ret != 0) {
         fprintf(stderr, "zbc_list_zones failed\n");
         ret = 1;
@@ -222,6 +244,93 @@ int main(int argc, char **argv) {
             ret = 1;
             goto out;
         }
+
+        printf("Writing file \"%s\" (%llu B) to target zone %d, %zu B I/Os\n",
+               file, f_size, zone_idx, io_size);
+
+    } else {
+
+        printf("Filling target zone %d, %zu B I/Os\n",
+               zone_idx, io_size);
+
+    }
+
+    sector_max = zbc_zone_length(io_zone);
+    if (zbc_zone_sequential_req(io_zone)) {
+        if (zbc_zone_full(io_zone))
+            sector_max = 0;
+        else if (zbc_zone_wp(io_zone) > zbc_zone_start(io_zone))
+            sector_max = zbc_zone_wp(io_zone) - zbc_zone_start(io_zone);
+    }
+
+    elapsed = zbc_write_zone_usec();
+
+    while (!zbc_write_zone_abort) {
+        if (file) {
+            size_t ios;
+
+            /* Read File */
+            ret = read(fd, io_buffer, io_size);
+            if (ret < 0) {
+                fprintf(stderr, "Read file \"%s\" failed %d (%s)\n",
+                        file, errno, strerror(errno));
+                ret = 1;
+                break;
+            }
+
+            ios = ret;
+            if (ios < io_size) {
+                if (ios) {
+                    /* Clear end of buffer */
+                    memset(io_buffer + ios, 0, io_size - ios);
+                }
+            }
+
+            if (!ios) {
+                /* EOF */
+                break;
+            }
+        }
+
+        /* Do not exceed the end of the zone */
+        if (zbc_zone_sequential(io_zone) && zbc_zone_full(io_zone))
+            sector_count = 0;
+        else
+            sector_count = io_size >> 9;
+        if (zone_offset + sector_count > sector_max)
+            sector_count = sector_max - zone_offset;
+        if (!sector_count)
+            break;
+        sector_offset = zbc_zone_start(io_zone) + zone_offset;
+
+        /* Write to zone */
+        ret = zbc_pwrite(dev, io_buffer, sector_count, sector_offset);
+        if (ret <= 0) {
+            fprintf(stderr, "%s failed %zd (%s)\n",
+                            "zbc_pwrite", -ret, strerror(-ret));
+            ret = 1;
+            goto out;
+        }
+
+        zone_offset += ret;
+        b_count += ret << 9;
+        io_count++;
+
+        if (io_num > 0 && io_count >= io_num)
+            break;
+
+    }
+
+    elapsed = zbc_write_zone_usec() - elapsed;
+    if (elapsed) {
+        printf("Wrote %llu B (%llu I/Os) in %llu.%03llu sec\n",
+               b_count, io_count, elapsed / 1000000, (elapsed / 1000000) / 1000);
+        printf("    IOPS %llu\n", io_count * 1000000 / elapsed);
+        b_rate = b_count * 1000000 / elapsed;
+        printf("    BW %llu.%03llu MB/s\n",
+               b_rate / 1000000, (b_rate % 1000000) / 1000);
+    } else {
+        printf("Wrote %llu B (%llu I/Os)\n", b_count, io_count);
     }
 
     out:

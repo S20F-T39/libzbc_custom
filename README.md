@@ -30,4 +30,10 @@ libzbc를 커스텀하여 파일 입출력을 수행합니다.
 4. `zone_info` 와 관련하여, `implicit open` 되어지는 `zone` 의 갯수가 한정적이므로,
 앞의 `zone` 이 `close` 되는 현상이 발생하여, 해결책이 필요합니다.
 
+> `write` 시
+1. `write` 를 진행할 때, `empty zone` 의 개수를 파악하여, `empty zone` 의 갯수가 0개 일때는 
+`Implicit Open Zone` 에 순차적으로 `write` 합니다.
+2. `Implicit Open Zone` 에 `write` 하는 과정에 대해서, Full 또는 Close 상태 일 때 어떻게
+처리하여야 하는지에 대해서 생각해보아야 합니다.
+
 ## Read

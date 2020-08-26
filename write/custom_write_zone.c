@@ -71,10 +71,11 @@ int main(int argc, char **argv) {
     struct zbc_device_info info = {0};
 
     struct zbc_zone *empty_zones = NULL;
+    struct zbc_zone *imp_open_zones = NULL;
     struct zbc_zone *io_zone = NULL;
 
-    unsigned int nr_zones;
     unsigned int nr_empty_zones;
+    unsigned int nr_imp_open_zones;
 
     unsigned long pattern = 0;
     unsigned long long io_count = 0, io_num = 0;
@@ -142,10 +143,20 @@ int main(int argc, char **argv) {
         ret = 1;
         goto out;
     }
+    ret = zbc_list_zones(dev, 0, ZBC_RO_IMP_OPEN, &imp_open_zones, &nr_imp_open_zones);
+    if (ret != 0) {
+        fprintf(stderr, "zbc_list_zones failed\n");
+        ret = 1;
+        goto out;
+    }
 
     /* Get Target Zone */
     /* Conventional zone 을 제외하고 받아왔으므로, Conventional check 불필요 */
-    io_zone = &empty_zones[0];
+    if (nr_empty_zones == 0)
+        io_zone = &imp_open_zones[0];
+    else
+        io_zone = &empty_zones[0];
+
     zone_idx = (int) (io_zone->zbz_start / zbc_zone_length(io_zone));
     if (!zbc_zone_sequential(io_zone)) {
         errno = EINVAL;
@@ -153,20 +164,38 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    printf("Target zone: Zone %d / %d, type 0x%x (%s), "
-           "cond 0x%x (%s), rwp %d, non_seq %d, "
-           "sector %llu, %llu sectors, wp %llu\n",
-           zone_idx,
-           nr_zones,
-           zbc_zone_type(io_zone),
-           zbc_zone_type_str(zbc_zone_type(io_zone)),
-           zbc_zone_condition(io_zone),
-           zbc_zone_condition_str(zbc_zone_condition(io_zone)),
-           zbc_zone_rwp_recommended(io_zone),
-           zbc_zone_non_seq(io_zone),
-           zbc_zone_start(io_zone),
-           zbc_zone_length(io_zone),
-           zbc_zone_wp(io_zone));
+    if (nr_empty_zones == 0) {
+        printf("Target zone: Implicit Open Zone %d / %d, type 0x%x (%s), "
+               "cond 0x%x (%s), rwp %d, non_seq %d, "
+               "sector %llu, %llu sectors, wp %llu\n",
+               zone_idx,
+               nr_imp_open_zones,
+               zbc_zone_type(io_zone),
+               zbc_zone_type_str(zbc_zone_type(io_zone)),
+               zbc_zone_condition(io_zone),
+               zbc_zone_condition_str(zbc_zone_condition(io_zone)),
+               zbc_zone_rwp_recommended(io_zone),
+               zbc_zone_non_seq(io_zone),
+               zbc_zone_start(io_zone),
+               zbc_zone_length(io_zone),
+               zbc_zone_wp(io_zone));
+    } else {
+        printf("Target zone: Empty Zone %d / %d, type 0x%x (%s), "
+               "cond 0x%x (%s), rwp %d, non_seq %d, "
+               "sector %llu, %llu sectors, wp %llu\n",
+               zone_idx,
+               nr_empty_zones,
+               zbc_zone_type(io_zone),
+               zbc_zone_type_str(zbc_zone_type(io_zone)),
+               zbc_zone_condition(io_zone),
+               zbc_zone_condition_str(zbc_zone_condition(io_zone)),
+               zbc_zone_rwp_recommended(io_zone),
+               zbc_zone_non_seq(io_zone),
+               zbc_zone_start(io_zone),
+               zbc_zone_length(io_zone),
+               zbc_zone_wp(io_zone));
+    }
+
 
     /* Part of File I/O */
     /**

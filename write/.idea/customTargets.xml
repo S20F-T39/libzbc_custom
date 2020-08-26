@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CLionExternalBuildManager">
+    <target id="c38e7494-1a9a-43d9-9b55-c4c5b6485794" name="libzbc_custom" defaultType="MAKE">
+      <configuration id="e3b149f9-488f-46ba-8af5-a960d16ff50d" name="libzbc_custom">
+        <build type="MAKE">
+          <make targetName="all" />
+        </build>
+        <clean type="MAKE">
+          <make targetName="clean" />
+        </clean>
+      </configuration>
+    </target>
+  </component>
+</project>
